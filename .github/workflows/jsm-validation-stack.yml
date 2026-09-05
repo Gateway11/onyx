@@ -18,7 +18,7 @@ jobs:
   smoke:
     if: github.repository == 'Gateway11/onyx'
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 55
     env:
       COMPOSE_FILE: deployment/docker_compose/docker-compose.yml:.github/jsm-validation/compose.yml
       COMPOSE_PROJECT_NAME: jsm-validation
@@ -37,19 +37,36 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun x --no-install playwright install --with-deps chromium
+      - name: Generate ephemeral application keys
+        run: |
+          jsm_auth_secret="$(openssl rand -hex 32)"
+          jsm_encryption_secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$jsm_auth_secret"
+          echo "::add-mask::$jsm_encryption_secret"
+          echo "JSM_AUTH_SECRET=$jsm_auth_secret" >> "$GITHUB_ENV"
+          echo "JSM_ENCRYPTION_SECRET=$jsm_encryption_secret" >> "$GITHUB_ENV"
       - name: Start current backend with standard services
         run: |
           sudo sysctl -w vm.max_map_count=262144
           docker compose up -d --no-build --wait --wait-timeout 900 api_server background relational_db opensearch cache inference_model_server indexing_model_server minio
       - name: Check connector setup in browser
         working-directory: web
+        env:
+          JSM_BASE_URL: ${{ vars.JSM_LIVE_VALIDATION == 'true' && secrets.JSM_BASE_URL || '' }}
+          JSM_USER_EMAIL: ${{ vars.JSM_LIVE_VALIDATION == 'true' && secrets.JSM_USER_EMAIL || '' }}
+          JSM_API_TOKEN: ${{ vars.JSM_LIVE_VALIDATION == 'true' && secrets.JSM_API_TOKEN || '' }}
+          JSM_PROJECT_KEY: ${{ vars.JSM_LIVE_VALIDATION == 'true' && secrets.JSM_PROJECT_KEY || '' }}
         run: bun run playwright --config jsm-validation.config.ts
       - name: Capture service status
         if: always()
+        env:
+          LIVE_VALIDATION: ${{ vars.JSM_LIVE_VALIDATION }}
         run: |
           mkdir -p validation-results
           docker compose ps -a > validation-results/services.txt
-          docker compose logs --no-color --tail 200 > validation-results/services.log
+          if [ "$LIVE_VALIDATION" != true ]; then
+            docker compose logs --no-color --tail 200 > validation-results/services.log
+          fi
           docker stats --no-stream > validation-results/resources.txt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

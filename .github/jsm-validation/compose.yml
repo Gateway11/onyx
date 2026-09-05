@@ -6,6 +6,8 @@ services:
       - 127.0.0.1:8080:8080
     environment: &validation_env
       AUTH_TYPE: disabled
+      USER_AUTH_SECRET: ${JSM_AUTH_SECRET}
+      ENCRYPTION_KEY_SECRET: ${JSM_ENCRYPTION_SECRET}
       LICENSE_ENFORCEMENT_ENABLED: 'false'
       DISABLE_TELEMETRY: 'true'
       CELERY_WORKER_PRIMARY_CONCURRENCY: '1'
@@ -16,6 +18,9 @@ services:
       CELERY_WORKER_USER_FILE_PROCESSING_CONCURRENCY: '1'
       CELERY_WORKER_SCHEDULED_TASKS_CONCURRENCY: '1'
   background:
+    depends_on:
+      api_server:
+        condition: service_healthy
     volumes:
       - ${GITHUB_WORKSPACE}/backend:/app
     environment: *validation_env
