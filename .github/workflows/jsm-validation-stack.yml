@@ -1,0 +1,65 @@
+name: JSM full stack smoke test
+on:
+  push:
+    branches: [ci/jsm-validation]
+    paths:
+      - .github/workflows/jsm-validation-stack.yml
+      - .github/jsm-validation/**
+      - web/jsm-validation.config.ts
+      - web/tests/e2e/jsm-validation/**
+      - web/tests/e2e/pages/JsmSetupPage.ts
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jsm-validation-stack
+  cancel-in-progress: true
+jobs:
+  smoke:
+    if: github.repository == 'Gateway11/onyx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      COMPOSE_FILE: deployment/docker_compose/docker-compose.yml:.github/jsm-validation/compose.yml
+      COMPOSE_PROJECT_NAME: jsm-validation
+      COMPOSE_PROFILES: s3-filestore
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.13
+      - name: Prepare frontend and browser
+        working-directory: web
+        env:
+          BUN_CONFIG_MAX_HTTP_REQUESTS: '8'
+        run: |
+          bun install --frozen-lockfile
+          bun x --no-install playwright install --with-deps chromium
+      - name: Start current backend with standard services
+        run: |
+          sudo sysctl -w vm.max_map_count=262144
+          docker compose up -d --no-build --wait --wait-timeout 900 api_server background relational_db opensearch cache inference_model_server indexing_model_server minio
+      - name: Check connector setup in browser
+        working-directory: web
+        run: bun run playwright --config jsm-validation.config.ts
+      - name: Capture service status
+        if: always()
+        run: |
+          mkdir -p validation-results
+          docker compose ps -a > validation-results/services.txt
+          docker compose logs --no-color --tail 200 > validation-results/services.log
+          docker stats --no-stream > validation-results/resources.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: jsm-stack-smoke
+          retention-days: 3
+          path: |
+            validation-results
+            web/test-results
+            web/playwright-report
+      - name: Remove ephemeral services
+        if: always()
+        run: docker compose down -v --remove-orphans

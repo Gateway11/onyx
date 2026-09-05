@@ -1,0 +1,21 @@
+services:
+  api_server:
+    volumes:
+      - ${GITHUB_WORKSPACE}/backend:/app
+    ports:
+      - 127.0.0.1:8080:8080
+    environment: &validation_env
+      AUTH_TYPE: disabled
+      LICENSE_ENFORCEMENT_ENABLED: 'false'
+      DISABLE_TELEMETRY: 'true'
+      CELERY_WORKER_PRIMARY_CONCURRENCY: '1'
+      CELERY_WORKER_LIGHT_CONCURRENCY: '2'
+      CELERY_WORKER_HEAVY_CONCURRENCY: '1'
+      CELERY_WORKER_DOCPROCESSING_CONCURRENCY: '1'
+      CELERY_WORKER_DOCFETCHING_CONCURRENCY: '1'
+      CELERY_WORKER_USER_FILE_PROCESSING_CONCURRENCY: '1'
+      CELERY_WORKER_SCHEDULED_TASKS_CONCURRENCY: '1'
+  background:
+    volumes:
+      - ${GITHUB_WORKSPACE}/backend:/app
+    environment: *validation_env
