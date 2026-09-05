@@ -5,10 +5,10 @@ services:
     ports:
       - 127.0.0.1:8080:8080
     environment: &validation_env
-      AUTH_TYPE: disabled
+      AUTH_TYPE: basic
       USER_AUTH_SECRET: ${JSM_AUTH_SECRET}
       ENCRYPTION_KEY_SECRET: ${JSM_ENCRYPTION_SECRET}
-      LICENSE_ENFORCEMENT_ENABLED: 'false'
+      LICENSE_ENFORCEMENT_ENABLED: 'true'
       DISABLE_TELEMETRY: 'true'
       CELERY_WORKER_PRIMARY_CONCURRENCY: '1'
       CELERY_WORKER_LIGHT_CONCURRENCY: '2'
