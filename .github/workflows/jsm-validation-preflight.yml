@@ -1,0 +1,50 @@
+name: JSM validation environment preflight
+
+on:
+  push:
+    branches: [ci/jsm-validation]
+    paths: [.github/workflows/jsm-validation-preflight.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    if: github.repository == 'Gateway11/onyx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Inspect resources
+        run: |
+          nproc
+          free -h
+          df -h /
+          docker version
+          docker compose version
+          df -h / >> "$GITHUB_STEP_SUMMARY"
+      - name: Check public download endpoints
+        run: |
+          python3 - <<'PY'
+          import urllib.error
+          import urllib.request
+
+          urls = (
+              "https://github.com",
+              "https://registry-1.docker.io/v2/",
+              "https://registry.npmjs.org",
+              "https://pypi.org",
+              "https://huggingface.co",
+              "https://mcr.microsoft.com/v2/",
+          )
+          for url in urls:
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      print(url, response.status)
+              except urllib.error.HTTPError as error:
+                  if error.code != 401:
+                      raise
+                  print(url, error.code, "registry authentication challenge received")
+          PY
+      - name: Verify Docker image download
+        run: docker pull postgres:15-alpine
