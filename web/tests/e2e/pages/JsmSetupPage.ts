@@ -10,7 +10,7 @@ export class JsmSetupPage {
   }
 
   async expectCredentialForm() {
-    await expect(this.page.getByLabel("Jira API Token", { exact: false })).toBeVisible();
+    await expect(this.page.getByLabel("API or Personal Access Token", { exact: true })).toBeVisible();
     await expect(this.page.getByLabel("Jira User Email", { exact: false })).toBeVisible();
   }
 }
